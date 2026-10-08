@@ -2,3 +2,4 @@ numpy
 cupy-cuda12x
 numba-cuda
 matplotlib
+pandas
