@@ -4,7 +4,7 @@
 
 I built this project to learn how computation differs between CPUs and GPUs, and how those differences allow GPUs to accelerate AI. I compared matrix multiplication four ways on an NVIDIA Tesla T4: a pure Python triple loop, NumPy on the CPU, CuPy on the GPU, and a custom CUDA kernel I wrote with Numba.
 
-## Important results
+## Important Results
 
 - CuPy (GPU) was **12,212×** faster than a pure Python triple loop at 256×256
 - CuPy was up to **42×** faster than NumPy on the CPU (2048×2048), and **17.5×** faster at 4096×4096 even including CPU↔GPU data transfer
@@ -13,11 +13,11 @@ I built this project to learn how computation differs between CPUs and GPUs, and
 
 ![Runtime and speedup charts](benchmark_results.png)
 
-## Why matrix multiplication?
+## Why Matrix Multiplication?
 
 Matrix multiplication is an extremely useful benchmark, as it is the basis of training and running the neural networks used in AI, and its O(n³) work makes it a demanding test of how fast hardware can compute. GPUs are uniquely suited for large-scale matrix multiplication as a result of each entry in the output matrix C being an independent dot product. This allows each entry in C to be computed by its own thread. A 4096×4096 multiply in this project launched about 16.7 million threads, spread across the T4's 2,560 cores.
 
-## What I built
+## What I Built
 
 - **Pure Python triple loop:** Uses three nested for loops: the `i` and `j` loops pick each entry of the output matrix C, and the `k` loop computes that entry's dot product, resulting in O(n³) work (about 1.2 seconds at just 256×256).
 - **NumPy (CPU):** Does the same O(n³) math, but much faster because NumPy uses BLAS (Basic Linear Algebra Subprograms), an optimized library that runs compiled code, works in cache-sized blocks, uses SIMD (single instruction, multiple data) instructions, and runs across multiple CPU cores, making it about 3,300× faster than the Python loop at 256×256.
@@ -48,13 +48,13 @@ Median time in milliseconds:
 | 2048 | — | 136.063 | 3.212 | 13.581 | 79.136 | 86.545 |
 | 4096 | — | 1308.471 | 47.608 | 74.941 | 633.900 | 687.471 |
 
-## What I learned
+## What I Learned
 
-**The GPU isn't always faster**
+**The GPU Isn't Always Faster**
 
 As a result of needing to set up the GPU for computation and limited improvements from a greater number of cores at small sizes, in my data, for n less than 128 the CPU was actually faster. When also including data transfer times necessary in practical applications of using GPU computation, that break-even point rose from 128 to 512. This outcome highlights how at small scales the necessary step of data transfer to a GPU outweighs the benefits associated with GPU computation.
 
-**Optimizing memory is super cool**
+**Optimizing Memory is Extremely Cool**
 
 This was by far and away the most interesting aspect to me, as when first performing this experiment, I had assumed that switching the rows and columns in my CUDA grid would not result in any meaningful change in performance. However, when swapping the rows and columns, my CUDA kernel was 2× faster, going from 1.27 s → 0.63 s at n = 4096. While the computations themselves stayed the same, the effect of swapping the rows and columns comes in the form of memory optimization. This optimization is called memory coalescing. In this specific case, matrices are stored in memory in a row by row format, and GPU threads run in warps of 32 that read memory at the same time. What this results in is when a warp is trying to perform a computation, it needs to read each of the necessary inputs, which in my original kernel were in up to 32 separate chunks, as the values needed for computation were all n positions away from each other. When swapping the order to col, row, the matrix is still stored row by row, but consecutive threads now handle consecutive columns instead of consecutive rows, allowing a single 128-byte fetch to retrieve the 32 neighboring values the warp's threads need. Because the kernel is memory-bound, this memory coalescing greatly improves performance without altering the underlying math.
 
